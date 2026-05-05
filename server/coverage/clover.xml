@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1777982685851" clover="3.2.0">
+  <project timestamp="1777982685851" name="All files">
+    <metrics statements="46" coveredstatements="44" conditionals="48" coveredconditionals="32" methods="9" coveredmethods="6" elements="103" coveredelements="82" complexity="0" loc="46" ncloc="46" packages="2" files="2" classes="2"/>
+    <package name="genericFunctions.p1FieldsFilter">
+      <metrics statements="6" coveredstatements="6" conditionals="4" coveredconditionals="4" methods="1" coveredmethods="1"/>
+      <file name="P1FieldsFilter.js" path="/workspaces/DevicePerformanceManagementDataProcessor/server/genericFunctions/p1FieldsFilter/P1FieldsFilter.js">
+        <metrics statements="6" coveredstatements="6" conditionals="4" coveredconditionals="4" methods="1" coveredmethods="1"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="16" count="5" type="cond" truecount="2" falsecount="0"/>
+        <line num="17" count="1" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="28" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="specificFunctions.p1StreamPmData.p1UpdateMwdiReplica">
+      <metrics statements="40" coveredstatements="38" conditionals="44" coveredconditionals="28" methods="8" coveredmethods="5"/>
+      <file name="P1UpdateMwdiReplica.js" path="/workspaces/DevicePerformanceManagementDataProcessor/server/specificFunctions/p1StreamPmData/p1UpdateMwdiReplica/P1UpdateMwdiReplica.js">
+        <metrics statements="40" coveredstatements="38" conditionals="44" coveredconditionals="28" methods="8" coveredmethods="5"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="33" count="3" type="stmt"/>
+        <line num="35" count="3" type="cond" truecount="6" falsecount="0"/>
+        <line num="36" count="1" type="stmt"/>
+        <line num="41" count="2" type="stmt"/>
+        <line num="48" count="2" type="stmt"/>
+        <line num="55" count="2" type="stmt"/>
+        <line num="62" count="2" type="stmt"/>
+        <line num="69" count="2" type="stmt"/>
+        <line num="76" count="2" type="stmt"/>
+        <line num="80" count="2" type="stmt"/>
+        <line num="84" count="2" type="stmt"/>
+        <line num="89" count="2" type="stmt"/>
+        <line num="93" count="2" type="stmt"/>
+        <line num="94" count="2" type="cond" truecount="1" falsecount="1"/>
+        <line num="98" count="2" type="stmt"/>
+        <line num="99" count="2" type="stmt"/>
+        <line num="101" count="2" type="stmt"/>
+        <line num="103" count="2" type="stmt"/>
+        <line num="104" count="2" type="stmt"/>
+        <line num="106" count="2" type="stmt"/>
+        <line num="153" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="154" count="1" type="stmt"/>
+        <line num="164" count="1" type="stmt"/>
+        <line num="166" count="1" type="stmt"/>
+        <line num="194" count="0" type="stmt"/>
+        <line num="203" count="1" type="cond" truecount="3" falsecount="3"/>
+        <line num="205" count="2" type="cond" truecount="1" falsecount="1"/>
+        <line num="206" count="2" type="cond" truecount="3" falsecount="1"/>
+        <line num="210" count="1" type="stmt"/>
+        <line num="211" count="1" type="stmt"/>
+        <line num="220" count="1" type="stmt"/>
+        <line num="222" count="1" type="stmt"/>
+        <line num="224" count="1" type="stmt"/>
+        <line num="246" count="0" type="stmt"/>
+        <line num="255" count="1" type="stmt"/>
+        <line num="261" count="1" type="stmt"/>
+      </file>
+    </package>
+  </project>
+</coverage>
