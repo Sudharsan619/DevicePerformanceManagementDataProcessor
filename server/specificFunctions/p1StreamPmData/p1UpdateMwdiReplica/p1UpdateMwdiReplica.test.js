@@ -1,6 +1,4 @@
-/* =========================
- * Module mocks (MUST be first)
- * ========================= */
+// Mock external dependencies
 jest.mock("../../../infra/onf/onfAdapter", () => ({
   getEsClient: jest.fn()
 }));
@@ -18,9 +16,7 @@ jest.mock("../../../infra/redis/redisStreamQueue", () => ({
   enqueueMountNames: jest.fn()
 }));
 
-/* =========================
- * Imports
- * ========================= */
+// Imports
 const onfAdapter = require("../../../infra/onf/onfAdapter");
 const { getParamFromFunction } = require("../../../utils/functionTree");
 const { withRetry } = require("../../../utils/retry");
@@ -28,28 +24,21 @@ const redisQueue = require("../../../infra/redis/redisStreamQueue");
 
 const { run } = require("./P1UpdateMwdiReplica");
 
-/* =========================
- * Tests
- * ========================= */
 describe("P1UpdateMwdiReplica.run", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  /* =========================
-   * VALIDATION TEST
-   * ========================= */
+  // Should throw error when required inputs are missing
   test("throws error when mandatory parameters are missing", async () => {
     await expect(run({})).rejects.toThrow(
       "parameters, mwdiEsClient, mwdiReplicaEsClient and loggingEsClient are mandatory"
     );
   });
 
-  /* =========================
-   * HAPPY PATH TEST
-   * ========================= */
-  test("successfully reindexes, extracts mount names, enqueues to redis and returns result", async () => {
+  // Happy path: reindex + extract mount names + enqueue
+  test("reindexes data and enqueues mount names", async () => {
     const sourceClient = {
       reindex: jest.fn().mockResolvedValue({
         body: { created: 1, updated: 0, total: 1 }
@@ -109,10 +98,8 @@ describe("P1UpdateMwdiReplica.run", () => {
     );
   });
 
-  /* =========================
-   * FAILURE PATH TEST
-   * ========================= */
-  test("handles reindex failure and still proceeds gracefully", async () => {
+  // Failure path: reindex fails but flow continues
+  test("handles reindex failure gracefully", async () => {
     const sourceClient = {
       reindex: jest.fn().mockRejectedValue(new Error("reindex failed"))
     };

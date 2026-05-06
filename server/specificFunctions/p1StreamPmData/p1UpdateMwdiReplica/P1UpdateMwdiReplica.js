@@ -153,7 +153,7 @@ async function run(request) {
     statusMessage = String(error.message || error);
     await loggingClient.index({
       index: loggingEsClient["index-alias"],
-      document: { jobName, periodStartTime, periodEndTime, status: "FAILED", error: String(err), lastReplicaTime: new Date().toJSON(), "timestamp": new Date().toJSON() },
+      document: { jobName, periodStartTime, periodEndTime, status: "FAILED", error: String(error), lastReplicaTime: new Date().toJSON(), "timestamp": new Date().toJSON() },
     }).catch(() => {});
   }
 

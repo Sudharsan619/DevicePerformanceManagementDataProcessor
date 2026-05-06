@@ -52,12 +52,12 @@ async function run(request) {
 
     if (!parameters || !rawCc) {
       logger.error(
-          {
-            label: "invalid-input", 
-            mountName
-          },
-          "Invalid input: parameters and rawCc are mandatory"
-        );
+        {
+          label: "invalid-input",
+          mountName
+        },
+        "Invalid input: parameters and rawCc are mandatory"
+      );
       throw new Error("parameters and rawCc are mandatory");
     }
 
@@ -124,12 +124,12 @@ async function run(request) {
     };
   } catch (error) {
     error.stage = "p1CreateResultCc";
-    logger.error(
-        {
-          label: "process-device-p1CreateResultCc",
-          error: error.message || error
-        },
-        "Failed to process device in p1CreateResultCc"
+    request.logger?.error(
+      {
+        label: "process-device-p1CreateResultCc",
+        error: error.message || error
+      },
+      "Failed to process device in p1CreateResultCc"
     );
     throw error;
   }
