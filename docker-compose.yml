@@ -1,14 +1,21 @@
+version: '3.8'
+
 services:
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.0
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
- 
+    restart: unless-stopped
+
+
   kafka:
     image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka
     depends_on:
       - zookeeper
     ports:
@@ -19,18 +26,26 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
- 
+    restart: unless-stopped
+
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
       - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
     ports:
       - "9200:9200"
- 
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+
   kibana:
     image: docker.elastic.co/kibana/kibana:8.10.2
+    container_name: kibana
     depends_on:
       - elasticsearch
     environment:
@@ -38,9 +53,12 @@ services:
       - XPACK_SECURITY_ENABLED=false
     ports:
       - "5601:5601"
- 
+    restart: unless-stopped
+
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
     ports:
       - "8081:8080"
     environment:
@@ -48,10 +66,17 @@ services:
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
     depends_on:
       - kafka
- 
+    restart: unless-stopped
+
+
   redis:
     image: redis/redis-stack:latest
+    container_name: redis
     ports:
       - "6379:6379"
       - "8001:8001"
- 
+    restart: unless-stopped
+
+
+volumes:
+  esdata:
