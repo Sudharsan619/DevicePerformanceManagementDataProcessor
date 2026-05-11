@@ -6,7 +6,7 @@ const onfAdapter = require("../../infra/onf/onfAdapter");
  * Request:
  * {
  *   parameters: <function-tree>,
- *   configFile: <control-construct>
+ *   config-file: <control-construct>
  * }
  *
  * Response:
@@ -24,10 +24,16 @@ const onfAdapter = require("../../infra/onf/onfAdapter");
  * }
  */
 async function run(request) {
-  const { parameters, configFile, logger } = request;
+  const parameters = request.parameters;
+  const configFile = request["config-file"];
+  const logger = request.logger;
 
-  if (!parameters || !configFile) {
-    throw new Error("parameters and configFile are mandatory");
+  if (!parameters) {
+    throw new Error("Kafka session could not be established: missing 'parameters'");
+  }
+
+  if (!configFile) {
+    throw new Error("Kafka session could not be established: missing 'config-file'");
   }
 
   const kafkaParams = getParamsByPurpose(
@@ -40,6 +46,10 @@ async function run(request) {
 
   for (const param of kafkaParams) {
     const kafkaClient = await readKafkaAddress(configFile, param.value);
+
+    if (!kafkaClient) {
+      throw new Error(`Kafka session could not be established: no address found for '${param.value}'`);
+    }
 
     await onfAdapter.connectKafkaProducer(
       kafkaClient.clientId,
