@@ -174,11 +174,18 @@ async function run() {
     dataStoreEsClient,
     staleMessageIdleMs: Number(redisConfig.staleMessageIdleMs || 60000),
     workerIdleSleepMs: Number(serviceConfig.workerIdleSleepMs || 1000)
-  }).catch((error) =>
-    logger.error({ error }, "Worker pool crashed")
-  );
+  }).catch((error) => logger.error({ error }, "Worker pool crashed"));
 
-  logger.info("Starting retry worker pool");
+ /* startKafkaOutboundWorkerPool({
+      logger,
+      instanceId,
+      appState,
+      workerCount: Number(serviceConfig.kafkaOutboundConcurrency || 1),
+      batchSize: Number(serviceConfig.kafkaOutboundBatchSize || 500),
+      staleMessageIdleMs: Number(redisConfig.staleMessageIdleMs || 60000)
+    }).catch((error) =>
+      logger.error({ error }, "Kafka outbound worker pool crashed")
+    );*/
 
   startRetryWorkerPool({
     logger,
