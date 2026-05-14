@@ -203,7 +203,9 @@ async function run() {
     processDeviceParameters: p1ProcessDeviceParameters,
     configFile: loaded.configFile,
     mwdiReplicaEsClient,
-    dataStoreEsClient
+    dataStoreEsClient,
+    staleMessageIdleMs: Number(redisConfig.staleMessageIdleMs || 60000),
+    workerIdleSleepMs: Number(serviceConfig.workerIdleSleepMs || 1000)
   }).catch((error) => logger.error({ error }, "Worker pool crashed"));
 
   startRetryWorkerPool({
@@ -211,10 +213,9 @@ async function run() {
     instanceId,
     appState,
     workerCount: 1,
-    retryDelayMs: Number(redisConfig.retryIntervalMs || 10000)
-  }).catch((error) => logger.error({ error }, "Retry worker crashed"));
-
-  logger.info({ instanceId }, "Service initialized successfully");
+    retryDelayMs: Number(redisConfig.retryIntervalMs || 10000),
+    staleMessageIdleMs: Number(redisConfig.staleMessageIdleMs || 60000)
+  }).catch((error) => logger.error({ error }, "Retry worker pool crashed")); 
 
   return {
     instanceId,
