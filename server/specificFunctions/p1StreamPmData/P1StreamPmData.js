@@ -66,7 +66,7 @@ async function startCleanupLeaderLoop(context) {
 
 // Main service entrypoint
 async function run() {
-  debugger;
+  
 
   logger.info({ service: "p1StreamPmData" }, "Service starting");
 

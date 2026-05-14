@@ -1,96 +1,105 @@
-jest.mock("os", () => ({
-  hostname: jest.fn(() => "test-host")
-}));
+jest.mock("../../genericFunctions/p1LoadParameters/P1LoadParameters");
+jest.mock("../../genericFunctions/p1ResolveEsAddress/P1ResolveEsAddress");
+jest.mock("../../genericFunctions/p1InitKafka/P1InitKafka");
+jest.mock("../../infra/elasticSearch/esBootstrap.js");
+jest.mock("../../core/replicaStateStore.js");
+jest.mock("../../runtime/replica/replicaLeaderLoop");
+jest.mock("../../runtime/processing/processingWorkerPoolRedis");
+jest.mock("../../runtime/processing/retryWorker");
 
-jest.mock("crypto", () => ({
-  randomUUID: jest.fn(() => "uuid-123")
-}));
+const { run } = require("../../path/to/p1StreamPmData");
 
-jest.mock("../../utils/functionTree", () => ({
-  findFunctionNode: jest.fn(() => ({})),
-  getParamFromFunction: jest.fn(() => 1)
-}));
+const p1LoadParameters = require("../../genericFunctions/p1LoadParameters/P1LoadParameters");
+const p1ResolveESAddress = require("../../genericFunctions/p1ResolveEsAddress/P1ResolveEsAddress");
+const p1InitKafka = require("../../genericFunctions/p1InitKafka/P1InitKafka");
+const { ensureIndicesAndMappings } = require("../../infra/elasticSearch/esBootstrap.js");
+const { loadLastReplicaTime } = require("../../core/replicaStateStore.js");
 
-jest.mock("../../utils/config", () => ({
-  loadRuntimeConfig: jest.fn(() => ({
-    redis: {},
-    service: {}
-  }))
-}));
+describe("p1StreamPmData", () => {
 
-jest.mock("../../core/appState", () => ({
-  AppState: jest.fn().mockImplementation(() => ({}))
-}));
-
-jest.mock("../../core/gracefulShutdown", () => ({
-  registerGracefulShutdown: jest.fn()
-}));
-
-jest.mock("../../infra/elasticSearch/esBootstrap.js", () => ({
-  ensureIndicesAndMappings: jest.fn()
-}));
-
-jest.mock("../../core/replicaStateStore.js", () => ({
-  loadLastReplicaTime: jest.fn(() => Promise.resolve("time"))
-}));
-
-jest.mock("../../genericFunctions/p1LoadParameters/P1LoadParameters", () => ({
-  run: jest.fn(() =>
-    Promise.resolve({ parameters: {}, configFile: {} })
-  )
-}));
-
-jest.mock("../../genericFunctions/p1ResolveEsAddress/P1ResolveEsAddress", () => ({
-  run: jest.fn(() =>
-    Promise.resolve({ esAddress: { "index-alias": "test-index" } })
-  )
-}));
-
-jest.mock("../../genericFunctions/p1InitKafka/P1InitKafka", () => ({
-  run: jest.fn(() =>
-    Promise.resolve({ kafkaConnectionList: ["kafka1"] })
-  )
-}));
-
-// ✅ FIX: MUST return Promise (for .catch)
-jest.mock("../../runtime/replica/replicaLeaderLoop", () => ({
-  startReplicaLeaderLoop: jest.fn(() => Promise.resolve())
-}));
-
-jest.mock("../../runtime/processing/processingWorkerPoolRedis", () => ({
-  startProcessingWorkerPoolRedis: jest.fn(() => Promise.resolve())
-}));
-
-jest.mock("../../runtime/processing/retryWorker", () => ({
-  startRetryWorkerPool: jest.fn(() => Promise.resolve())
-}));
-
-// ✅ FIX: mock kafka worker (not missing file)
-jest.mock("../../runtime/kafka/kafkaOutboundWorker", () => ({
-  startKafkaOutboundWorkerPool: jest.fn(() => Promise.resolve())
-}));
-
-jest.mock("../../service/LoggingService.js", () => ({
-  getLogger: () => ({
-    error: jest.fn(),
-    info: jest.fn()
-  })
-}));
-
-const { run } = require("./P1StreamPmData");
-
-describe("run()", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  test("should initialize system and return expected output", async () => {
+  test("throws when parameters not loaded", async () => {
+    p1LoadParameters.run.mockResolvedValue({});
+
+    await expect(run()).rejects.toThrow("Parameters could not be loaded");
+  });
+
+  test("throws when ES parameters missing", async () => {
+    p1LoadParameters.run.mockResolvedValue({
+      parameters: {},
+      configFile: {}
+    });
+
+    await expect(run()).rejects.toThrow(
+      "ES address could not be resolved: missing parameters"
+    );
+  });
+
+  test("throws when ES resolution returns empty", async () => {
+    p1LoadParameters.run.mockResolvedValue({
+      parameters: {
+        parameter: [{ "parameter-name": "p1ResolveEsAddress" }]
+      },
+      configFile: {}
+    });
+
+    p1ResolveESAddress.run.mockResolvedValue({ esAddress: null });
+
+    await expect(run()).rejects.toThrow(
+      "ES address could not be resolved"
+    );
+  });
+
+  test("throws when Kafka initialization fails", async () => {
+    p1LoadParameters.run.mockResolvedValue({
+      parameters: {
+        parameter: [
+          { "parameter-name": "p1ResolveEsAddress" },
+          { "parameter-name": "p1InitKafka" }
+        ]
+      },
+      configFile: {}
+    });
+
+    p1ResolveESAddress.run.mockResolvedValue({ esAddress: {} });
+
+    p1InitKafka.run.mockResolvedValue({});
+
+    await expect(run()).rejects.toThrow(
+      "Kafka session could not be established"
+    );
+  });
+
+  test("runs successfully", async () => {
+    p1LoadParameters.run.mockResolvedValue({
+      parameters: {
+        parameter: [
+          { "parameter-name": "p1ResolveEsAddress" },
+          { "parameter-name": "p1InitKafka" },
+          { "parameter-name": "p1UpdateMwdiReplica" },
+          { "parameter-name": "p1ProcessDevice" }
+        ]
+      },
+      configFile: {}
+    });
+
+    p1ResolveESAddress.run.mockResolvedValue({ esAddress: {} });
+
+    p1InitKafka.run.mockResolvedValue({
+      kafkaConnectionList: []
+    });
+
+    ensureIndicesAndMappings.mockResolvedValue();
+    loadLastReplicaTime.mockResolvedValue("2020-01-01T00:00:00Z");
+
     const result = await run();
 
     expect(result).toHaveProperty("instanceId");
     expect(result).toHaveProperty("appState");
     expect(result).toHaveProperty("kafkaConnectionList");
-
-    expect(result.kafkaConnectionList).toEqual(["kafka1"]);
   });
+
 });

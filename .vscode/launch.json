@@ -15,7 +15,9 @@
             "program": "${workspaceFolder}/server/index.js",
             "env": {
                 "DEBUG": "true"
-            }
+            },
+            "stopOnEntry": false,
+            "stopOnException": false
         }
     ]
 }

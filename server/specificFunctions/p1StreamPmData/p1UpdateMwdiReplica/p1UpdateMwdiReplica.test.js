@@ -1,14 +1,15 @@
-// Mock external dependencies
+const { run } = require("./P1UpdateMwdiReplica");
+
 jest.mock("../../../infra/onf/onfAdapter", () => ({
   getEsClient: jest.fn()
 }));
 
 jest.mock("../../../utils/functionTree", () => ({
-  getParamFromFunction: jest.fn()
+  getParamFromFunction: jest.fn((p, f, k, d) => d)
 }));
 
 jest.mock("../../../utils/retry", () => ({
-  withRetry: jest.fn()
+  withRetry: jest.fn(fn => fn())
 }));
 
 jest.mock("../../../infra/redis/redisStreamQueue", () => ({
@@ -16,131 +17,134 @@ jest.mock("../../../infra/redis/redisStreamQueue", () => ({
   enqueueMountNames: jest.fn()
 }));
 
-// Imports
 const onfAdapter = require("../../../infra/onf/onfAdapter");
-const { getParamFromFunction } = require("../../../utils/functionTree");
-const { withRetry } = require("../../../utils/retry");
 const redisQueue = require("../../../infra/redis/redisStreamQueue");
 
-const { run } = require("./P1UpdateMwdiReplica");
+describe("p1UpdateMwdiReplica", () => {
 
-describe("P1UpdateMwdiReplica.run", () => {
+  let logger;
+  let base;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    logger = { info: jest.fn(), error: jest.fn() };
+
+    base = {
+      parameters: {},
+      mwdiEsClient: { uuid: "mwdi", "index-alias": "mwdi" },
+      mwdiReplicaEsClient: { uuid: "replica", "index-alias": "mwdireplica" },
+      loggingEsClient: { uuid: "log", "index-alias": "logging" },
+      lastReplicaTime: "2026-01-01T00:00:00.000Z",
+      runtimeConfig: { redis: { enqueueBatchSize: 5, enqueuePauseMs: 5 }},
+      logger
+    };
   });
 
-  // Should throw error when required inputs are missing
-  test("throws error when mandatory parameters are missing", async () => {
-    await expect(run({})).rejects.toThrow(
-      "parameters, mwdiEsClient, mwdiReplicaEsClient and loggingEsClient are mandatory"
-    );
-  });
-
-  // Happy path: reindex + extract mount names + enqueue
-  test("reindexes data and enqueues mount names", async () => {
-    const sourceClient = {
-      reindex: jest.fn().mockResolvedValue({
-        body: { created: 1, updated: 0, total: 1 }
-      })
-    };
-
-    const replicaClient = {
-      search: jest.fn().mockResolvedValue({
-        body: {
-          hits: {
-            hits: [
-              { _source: { mountName: "mount-1" } },
-              { _source: { uuid: "uuid-2" } }
-            ]
-          }
-        }
-      })
-    };
-
-    const loggingClient = {
-      index: jest.fn().mockResolvedValue({})
+  test("happy path", async () => {
+    const mockReindex = { body: { created: 2, updated: 0, total: 2 }};
+    const mockSearch = {
+      body: { hits: { hits: [
+        { _source: { "mount-name": "A" }},
+        { _source: { "mount-name": "B" }}
+      ]}}
     };
 
     onfAdapter.getEsClient
-      .mockResolvedValueOnce(sourceClient)
-      .mockResolvedValueOnce(replicaClient)
-      .mockResolvedValueOnce(loggingClient);
-
-    getParamFromFunction.mockImplementation(
-      (_, __, ___, defaultValue) => defaultValue
-    );
-
-    withRetry.mockImplementation(async (fn) => fn());
+      .mockResolvedValueOnce({ reindex: jest.fn().mockResolvedValue(mockReindex) })
+      .mockResolvedValueOnce({ search: jest.fn().mockResolvedValue(mockSearch) })
+      .mockResolvedValueOnce({ index: jest.fn().mockResolvedValue({}) });
 
     redisQueue.ensureGroup.mockResolvedValue();
     redisQueue.enqueueMountNames.mockResolvedValue();
 
-    const request = {
-      parameters: {},
-      mwdiEsClient: { uuid: "src", "index-alias": "src-index" },
-      mwdiReplicaEsClient: { uuid: "rep", "index-alias": "replica-index" },
-      loggingEsClient: { uuid: "log", "index-alias": "log-index" },
-      runtimeConfig: {},
-      logger: { error: jest.fn(), info: jest.fn() }
-    };
+    const res = await run(base);
 
-    const result = await run(request);
-
-    expect(result.updatedMountNames).toEqual(["mount-1", "uuid-2"]);
-    expect(result.timestamp).toBeDefined();
-
-    expect(redisQueue.ensureGroup).toHaveBeenCalled();
-    expect(redisQueue.enqueueMountNames).toHaveBeenCalledWith(
-      ["mount-1", "uuid-2"],
-      expect.any(Object),
-      request.logger
-    );
+    expect(res["updated-mount-names"]).toEqual(["A", "B"]);
+    expect(typeof res.timestamp).toBe("string");
+    expect(redisQueue.enqueueMountNames).toHaveBeenCalled();
   });
 
-  // Failure path: reindex fails but flow continues
-  test("handles reindex failure gracefully", async () => {
-    const sourceClient = {
-      reindex: jest.fn().mockRejectedValue(new Error("reindex failed"))
-    };
+  test("missing inputs", async () => {
+    const res = await run({
+      parameters: null,
+      mwdiEsClient: null,
+      mwdiReplicaEsClient: null,
+      loggingEsClient: null,
+      logger
+    });
+    expect(res).toBe("unknown error occurred");
+  });
 
-    const replicaClient = {
-      search: jest.fn().mockResolvedValue({
-        body: { hits: { hits: [] } }
-      })
-    };
+  test("mwdi es connect error", async () => {
+    onfAdapter.getEsClient.mockRejectedValue(new Error("x"));
+    const res = await run(base);
+    expect(res).toBe("connection to MWDI ES failed");
+  });
 
-    const loggingClient = {
-      index: jest.fn().mockResolvedValue({})
-    };
+  test("replica es connect error", async () => {
+    onfAdapter.getEsClient
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error("x"));
+    const res = await run(base);
+    expect(res).toBe("connection to MWDI Replica ES failed");
+  });
+
+  test("logging es connect error", async () => {
+    onfAdapter.getEsClient
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error("x"));
+    const res = await run(base);
+    expect(res).toBe("connection to Logging ES failed");
+  });
+
+  test("reindex error", async () => {
+    onfAdapter.getEsClient
+      .mockResolvedValueOnce({ reindex: () => { throw new Error("x") }})
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+    const res = await run(base);
+    expect(res).toBe("data replication failed");
+  });
+
+  test("search error", async () => {
+    onfAdapter.getEsClient
+      .mockResolvedValueOnce({ reindex: jest.fn().mockResolvedValue({ body: {} }) })
+      .mockResolvedValueOnce({ search: () => { throw new Error("x") }})
+      .mockResolvedValueOnce({});
+    const res = await run(base);
+    expect(res).toBe("data replication failed");
+  });
+
+  test("redis enqueue error", async () => {
+    const mockReindex = { body: { total: 1 }};
+    const mockSearch = { body: { hits: { hits: [{ _source: { "mount-name": "X" }}] } }};
 
     onfAdapter.getEsClient
-      .mockResolvedValueOnce(sourceClient)
-      .mockResolvedValueOnce(replicaClient)
-      .mockResolvedValueOnce(loggingClient);
+      .mockResolvedValueOnce({ reindex: jest.fn().mockResolvedValue(mockReindex) })
+      .mockResolvedValueOnce({ search: jest.fn().mockResolvedValue(mockSearch) })
+      .mockResolvedValueOnce({ index: jest.fn().mockResolvedValue({}) });
 
-    getParamFromFunction.mockImplementation(
-      (_, __, ___, defaultValue) => defaultValue
-    );
+    redisQueue.ensureGroup.mockResolvedValue();
+    redisQueue.enqueueMountNames.mockRejectedValue(new Error("x"));
 
-    withRetry.mockImplementation(async (fn) => fn());
+    const res = await run(base);
+    expect(res).toBe("unknown error occurred");
+  });
+
+  test("logging write error", async () => {
+    const mockReindex = { body: { total: 1 }};
+    const mockSearch = { body: { hits: { hits: [] }}};
+
+    onfAdapter.getEsClient
+      .mockResolvedValueOnce({ reindex: jest.fn().mockResolvedValue(mockReindex) })
+      .mockResolvedValueOnce({ search: jest.fn().mockResolvedValue(mockSearch) })
+      .mockResolvedValueOnce({ index: () => { throw new Error("x") }});
 
     redisQueue.ensureGroup.mockResolvedValue();
     redisQueue.enqueueMountNames.mockResolvedValue();
 
-    const request = {
-      parameters: {},
-      mwdiEsClient: { uuid: "src", "index-alias": "src-index" },
-      mwdiReplicaEsClient: { uuid: "rep", "index-alias": "replica-index" },
-      loggingEsClient: { uuid: "log", "index-alias": "log-index" },
-      runtimeConfig: {},
-      logger: { error: jest.fn(), info: jest.fn() }
-    };
-
-    const result = await run(request);
-
-    expect(result.updatedMountNames).toEqual([]);
-    expect(loggingClient.index).toHaveBeenCalled();
+    const res = await run(base);
+    expect(res).toBe("connection to Logging ES failed");
   });
-
 });
